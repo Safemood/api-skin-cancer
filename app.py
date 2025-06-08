@@ -1,21 +1,22 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from model_loader import load_model
+from model_loader import load_model, predict_tflite
 from utils import preprocess_image
 from werkzeug.datastructures import FileStorage
 import io
 import base64
 import os
 import uuid
+import tensorflow as tf
 
 # --- App setup
 app = Flask(__name__)
 CORS(app)
 
 MODEL_INPUT_SIZES = {
-    "mobilenetv2": (128, 128),
-    "cnn": (224, 224),  # example, adjust if your cnn uses 224x224
- }
+    "mobilenetv2": (128, 128),  # FIXED!
+    "cnn": (128, 128),          # or 224x224 if your cnn is 224x224
+}
 
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -29,7 +30,6 @@ def get_model(name):
     return _models_cache[name]
 
 # --- Routes
-
 
 @app.route("/", methods=["GET"])
 def root():
@@ -56,7 +56,7 @@ def predict(model_name):
 
         decoded = base64.b64decode(file_b64)
         bytes_io = io.BytesIO(decoded)
-        bytes_io.name = 'uploaded_image.jpg'  # safe name
+        bytes_io.name = 'uploaded_image.jpg'
 
         filename_to_save = f"{uuid.uuid4().hex}_uploaded_image.jpg"
         save_path = os.path.join(UPLOAD_FOLDER, filename_to_save)
@@ -69,10 +69,16 @@ def predict(model_name):
 
     # --- Run prediction
     try:
-        file.stream.seek(0)  # reset stream position
-        target_size = MODEL_INPUT_SIZES.get(model_name, (224, 224))  # default fallback
-        img_array = preprocess_image(file, model_name, target_size= target_size)
-        prediction = model.predict(img_array)[0][0]
+        file.stream.seek(0)
+        target_size = MODEL_INPUT_SIZES.get(model_name, (224, 224))
+        img_array = preprocess_image(file, model_name, target_size=target_size)
+
+        # --- Handle TFLite or Keras model:
+        if isinstance(model, tf.lite.Interpreter):
+            prediction = predict_tflite(model, img_array)[0][0]
+        else:
+            prediction = model.predict(img_array)[0][0]
+
         threshold = 0.5
         result = "Malignant" if prediction < threshold else "Benign"
 
