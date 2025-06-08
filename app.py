@@ -12,6 +12,11 @@ import uuid
 app = Flask(__name__)
 CORS(app)
 
+MODEL_INPUT_SIZES = {
+    "mobilenetv2": (128, 128),
+    "cnn": (224, 224),  # example, adjust if your cnn uses 224x224
+ }
+
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
@@ -24,6 +29,7 @@ def get_model(name):
     return _models_cache[name]
 
 # --- Routes
+
 
 @app.route("/", methods=["GET"])
 def root():
@@ -64,7 +70,8 @@ def predict(model_name):
     # --- Run prediction
     try:
         file.stream.seek(0)  # reset stream position
-        img_array = preprocess_image(file, model_name)
+        target_size = MODEL_INPUT_SIZES.get(model_name, (224, 224))  # default fallback
+        img_array = preprocess_image(file, model_name, target_size= target_size)
         prediction = model.predict(img_array)[0][0]
         threshold = 0.5
         result = "Malignant" if prediction < threshold else "Benign"
