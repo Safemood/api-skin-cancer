@@ -2,18 +2,28 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from model_loader import load_model
 from utils import preprocess_image
+from werkzeug.datastructures import FileStorage
+import io
+import base64
+import os
+import uuid
 
+# --- App setup
 app = Flask(__name__)
-
 CORS(app)
 
+UPLOAD_FOLDER = 'uploads'
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# Preload all models at startup for efficiency
-for model_name in [  'cnn', 'mobilenetv2' ]:
-    try:
-        load_model(model_name)
-    except Exception as e:
-        print(f"Error loading model {model_name}: {e}")
+# --- Preload models cache
+_models_cache = {}
+
+def get_model(name):
+    if name not in _models_cache:
+        _models_cache[name] = load_model(name)
+    return _models_cache[name]
+
+# --- Routes
 
 @app.route("/", methods=["GET"])
 def root():
@@ -22,36 +32,53 @@ def root():
 @app.route("/predict/<model_name>", methods=["POST"])
 def predict(model_name):
     try:
-        model = load_model(model_name)
-    except ValueError:
+        model = get_model(model_name)
+    except Exception:
         return jsonify({"error": f"Model '{model_name}' is not available."}), 400
 
+    if not request.is_json:
+        return jsonify({"error": "Request content-type must be application/json."}), 400
 
-
-    print( request.files['file'])
-
-    if 'file' not in request.files:
-        return jsonify({"error": "No file uploaded."}), 400
-
-    file = request.files['file']
-
-
-    if not file.content_type.startswith('image/'):
-        return jsonify({"error": "Invalid file type. Please upload an image."}), 401
+    data = request.get_json()
+    file_b64 = data.get('base64file')
+    if not file_b64:
+        return jsonify({"error": "No base64file key found in JSON body."}), 400
 
     try:
+        if file_b64.startswith('data:'):
+            file_b64 = file_b64.split(',', 1)[1]
+
+        decoded = base64.b64decode(file_b64)
+        bytes_io = io.BytesIO(decoded)
+        bytes_io.name = 'uploaded_image.jpg'  # safe name
+
+        filename_to_save = f"{uuid.uuid4().hex}_uploaded_image.jpg"
+        save_path = os.path.join(UPLOAD_FOLDER, filename_to_save)
+        with open(save_path, 'wb') as f:
+            f.write(decoded)
+
+        file = FileStorage(stream=bytes_io, filename=bytes_io.name, content_type='image/jpg')
+    except Exception:
+        return jsonify({"error": "Invalid base64 file data."}), 400
+
+    # --- Run prediction
+    try:
+        file.stream.seek(0)  # reset stream position
         img_array = preprocess_image(file, model_name)
         prediction = model.predict(img_array)[0][0]
-        threshold = 0.5  # default threshold, can be tweaked if needed
+        threshold = 0.5
         result = "Malignant" if prediction < threshold else "Benign"
+
         return jsonify({
             "model": model_name,
             "prediction": float(prediction),
-            "result": result
+            "result": result,
+            "saved_filename": filename_to_save
         })
     except Exception as e:
         print(f"Prediction error: {e}")
         return jsonify({"error": "Internal server error during prediction."}), 500
 
+# --- Main entry point
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8082, debug=True)
