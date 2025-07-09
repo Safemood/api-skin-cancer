@@ -1,3 +1,5 @@
+setuptools>=68
+wheel
 absl-py==2.3.0
 array_record==0.7.2
 astunparse==1.6.3
@@ -40,7 +42,6 @@ markdown-it-py==3.0.0
 MarkupSafe==3.0.2
 matplotlib==3.10.3
 mdurl==0.1.2
-ml-dtypes==0.2.0
 namex==0.1.0
 numpy==1.26.4
 oauthlib==3.2.2
