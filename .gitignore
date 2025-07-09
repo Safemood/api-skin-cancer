@@ -279,3 +279,17 @@ Test/
 
 # End of https://www.toptal.com/developers/gitignore/api/python,flask,venv
 .vercel
+
+
+*.log
+*.pyc
+__pycache__
+
+# Environments 
+.env 
+.venv 
+env/ 
+venv/ 
+ENV/ 
+env.bak/ 
+venv.bak/ 
