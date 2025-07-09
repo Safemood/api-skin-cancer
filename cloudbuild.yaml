@@ -1,0 +1,30 @@
+steps:
+  - name: "gcr.io/cloud-builders/docker"
+    id: "build-and-push-api-skin-cancer"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        # Build the Docker image
+        docker buildx build --tag=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/api-skin-cancer:$SHORT_SHA . && \
+        # Push the Docker image to the registry
+        docker push ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/api-skin-cancer:$SHORT_SHA
+
+  - name: "gcr.io/cloud-builders/gcloud"
+    id: "deploy-agri-visor"
+    waitFor: ["build-and-push-api-skin-cancer"]
+    args:
+      - "run"
+      - "deploy"
+      - "agri-visor"
+      - "--image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/api-skin-cancer:$SHORT_SHA"
+      - "--region=${_REGION}"
+      - "--platform=managed"
+      - "--allow-unauthenticated"
+      - "--port=80"
+
+images:
+  - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/api-skin-cancer:$SHORT_SHA"
+
+options:
+  logging: CLOUD_LOGGING_ONLY

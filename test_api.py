@@ -9,7 +9,7 @@ IMAGE_PATHS = {
 }
 
 def predict(model_name, image_path):
-    api_url = f"http://192.168.1.21:8082/predict/{model_name}"
+    api_url = f"http://192.168.1.21:80/predict/{model_name}"
 
     if not os.path.exists(image_path):
         print(f"Error: File '{image_path}' not found.")
