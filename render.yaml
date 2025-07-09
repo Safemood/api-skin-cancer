@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: api-skin-cancer
+    env: docker
+    dockerfilePath: Dockerfile
+    branch: main
+    plan: starter
+    envVars:
+      - key: FLASK_APP
+        value: app.py
+      - key: FLASK_RUN_HOST
+        value: 0.0.0.0
+    ports:
+      - 5000

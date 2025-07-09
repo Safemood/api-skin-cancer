@@ -1,0 +1,17 @@
+services:
+  app:
+    build: .
+    container_name: api_cancer
+    ports:
+      - "5000:80"
+    environment:
+      - FLASK_APP=app.py
+      - FLASK_RUN_HOST=0.0.0.0
+    volumes:
+      - .:/app
+    networks:
+      - api_cancer_network
+
+networks:
+  api_cancer_network:
+    driver: bridge
